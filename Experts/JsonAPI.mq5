@@ -54,7 +54,7 @@ Socket chartDataSocket(context,ZMQ_PULL);
 Socket chartIndicatorDataSocket(context,ZMQ_PUB);
 
 // Global variables \\
-bool debug = false;
+bool debug = true;
 bool liveStream = true;
 bool connectedFlag = true;
 int deInitReason = -1;
@@ -1219,43 +1219,31 @@ void TradingModule(CJAVal &dataObject){
 void OnTradeTransaction(const MqlTradeTransaction &trans,
                         const MqlTradeRequest &request,
                         const MqlTradeResult &result){
-   
-  ENUM_TRADE_TRANSACTION_TYPE  trans_type=trans.type;
   switch(trans.type) {
-    case  TRADE_TRANSACTION_REQUEST:{
-      CJAVal data, req, res;
-      
-      req["action"]=EnumToString(request.action);
-      req["order"]=(int) request.order;
-      req["symbol"]=(string) request.symbol;
-      req["volume"]=(double) request.volume;
-      req["price"]=(double) request.price;
-      req["stoplimit"]=(double) request.stoplimit;
-      req["sl"]=(double) request.sl;
-      req["tp"]=(double) request.tp;
-      req["deviation"]=(int) request.deviation;
-      req["type"]=EnumToString(request.type);
-      req["type_filling"]=EnumToString(request.type_filling);
-      req["type_time"]=EnumToString(request.type_time);
-      req["expiration"]=(int) request.expiration;
-      req["comment"]=(string) request.comment;
-      req["position"]=(int) request.position;
-      req["position_by"]=(int) request.position_by;
-      
-      res["retcode"]=(int) result.retcode;
-      res["result"]=(string) GetRetcodeID(result.retcode);
-      res["deal"]=(int) result.order;
-      res["order"]=(int) result.order;
-      res["volume"]=(double) result.volume;
-      res["price"]=(double) result.price;
-      res["comment"]=(string) result.comment;
-      res["request_id"]=(int) result.request_id;
-      res["retcode_external"]=(int) result.retcode_external;
+   // case TRADE_TRANSACTION_REQUEST:
+   // case TRADE_TRANSACTION_POSITION: 
+   case TRADE_TRANSACTION_ORDER_ADD:
+   case TRADE_TRANSACTION_ORDER_UPDATE:
+   case TRADE_TRANSACTION_ORDER_DELETE: {
+      CJAVal data, tran;
+      tran["deal"]=(int) trans.order;
+      tran["order"]=(int) trans.order;
+      tran["symbol"]=(string) trans.symbol;
+      tran["type"]=EnumToString(trans.type);
+      tran["order_type"]=EnumToString(trans.order_type);
+      tran["order_state"]=EnumToString(trans.order_state);
+      tran["deal_type"]=EnumToString(trans.deal_type);
+      tran["time_type"]=EnumToString(trans.time_type);
+      tran["time_expiration"]=TimeToString(trans.time_expiration);
+      tran["price"]=(double) trans.price;
+      tran["price_trigger"]=(double) trans.price_trigger;
+      tran["price_sl"]=(double) trans.price_sl;
+      tran["price_tp"]=(double) trans.price_tp;
+      tran["volume"]=(double) trans.volume;
+      tran["position"]=(long) trans.position;
+      tran["position_by"]=(long) trans.position_by;
 
-      data["request"].Set(req);
-      data["result"].Set(res);
-      
-      string t=data.Serialize();
+      string t=tran.Serialize();
       if(debug) Print(t);
       InformClientSocket(streamSocket,t);
     }
