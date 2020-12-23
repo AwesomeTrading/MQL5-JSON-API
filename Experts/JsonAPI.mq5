@@ -29,7 +29,7 @@
 #include <Trade/DealInfo.mqh>
 #include <Trade/Trade.mqh>
 #include <Zmq/Zmq.mqh>
-#include <Json.mqh>
+#include <JAson.mqh>
 #include <StringToEnumInt.mqh>
 #include <ControlErrors.mqh>
 
@@ -1029,21 +1029,22 @@ void GetPositions(CJAVal &dataObject){
   for(int i=0;i<positionsTotal;i++){
     mControl.mResetLastError();
     
-    if(myposition.Select(PositionGetSymbol(i))){
-      position["id"]=PositionGetInteger(POSITION_IDENTIFIER);
-      position["magic"]=PositionGetInteger(POSITION_MAGIC);
-      position["symbol"]=PositionGetString(POSITION_SYMBOL);
-      position["type"]=EnumToString(ENUM_POSITION_TYPE(PositionGetInteger(POSITION_TYPE)));
-      position["time_setup"]=PositionGetInteger(POSITION_TIME);
-      position["open"]=PositionGetDouble(POSITION_PRICE_OPEN);
-      position["stoploss"]=PositionGetDouble(POSITION_SL);
-      position["takeprofit"]=PositionGetDouble(POSITION_TP);
-      position["volume"]=PositionGetDouble(POSITION_VOLUME);
-    
-      data["error"]=(bool) false;
+    if(myposition.SelectByIndex(i)){
+      position["id"]=myposition.Identifier();
+      position["magic"]=myposition.Magic();
+      position["symbol"]=myposition.Symbol();
+      position["type"]=EnumToString(myposition.PositionType());
+      position["time_setup"]=(long)myposition.Time();
+      position["open"]=myposition.PriceOpen();
+      position["stoploss"]=myposition.StopLoss();
+      position["takeprofit"]=myposition.TakeProfit();
+      position["volume"]=myposition.Volume();
+      position["comment"]=myposition.Comment();
+      
+      data["error"]=false;
       data["positions"].Add(position);
     }
-      CheckError(__FUNCTION__);
+    //CheckError(__FUNCTION__);
   }
   
   string t=data.Serialize();
@@ -1067,22 +1068,23 @@ void GetOrders(CJAVal &dataObject){
     if(!ordersTotal) {data["error"]=(bool) false; data["orders"].Add(order);}
     
     for(int i=0;i<ordersTotal;i++){
-      if (myorder.Select(OrderGetTicket(i))){   
-        order["id"]=(string) myorder.Ticket();
-        order["magic"]=OrderGetInteger(ORDER_MAGIC); 
-        order["symbol"]=OrderGetString(ORDER_SYMBOL);
-        order["type"]=EnumToString(ENUM_ORDER_TYPE(OrderGetInteger(ORDER_TYPE)));
-        order["time_setup"]=OrderGetInteger(ORDER_TIME_SETUP);
-        order["open"]=OrderGetDouble(ORDER_PRICE_OPEN);
-        order["stoploss"]=OrderGetDouble(ORDER_SL);
-        order["takeprofit"]=OrderGetDouble(ORDER_TP);
-        order["volume"]=OrderGetDouble(ORDER_VOLUME_INITIAL);
-        
+      if (myorder.SelectByIndex(i)){   
+        order["id"]=(long)myorder.Ticket();
+        order["magic"]=myorder.Magic(); 
+        order["symbol"]=myorder.Symbol();
+        order["type"]=EnumToString(myorder.OrderType());
+        order["state"]=EnumToString(myorder.State());
+        order["time_setup"]=(long)myorder.TimeSetup();
+        order["open"]=myorder.PriceOpen();
+        order["stoploss"]=myorder.StopLoss();
+        order["takeprofit"]=myorder.TakeProfit();
+        order["volume"]=myorder.VolumeInitial();
+        order["comment"]=myorder.Comment();
+
         data["error"]=(bool) false;
         data["orders"].Add(order);
-      } 
-      // Error handling   
-      CheckError(__FUNCTION__);
+      }
+      //CheckError(__FUNCTION__);
     }
   }
     
@@ -1090,7 +1092,7 @@ void GetOrders(CJAVal &dataObject){
   if(debug) Print(t);
   InformClientSocket(dataSocket,t);
 }
-  
+
 //+------------------------------------------------------------------+
 //| Trading module                                                   |
 //+------------------------------------------------------------------+
@@ -1105,9 +1107,9 @@ void TradingModule(CJAVal &dataObject){
   
   int      idNimber=dataObject["id"].ToInt();
   double   volume=dataObject["volume"].ToDbl();
-  double   SL=dataObject["stoploss"].ToDbl();
-  double   TP=dataObject["takeprofit"].ToDbl();
-  double   price=NormalizeDouble(dataObject["price"].ToDbl(),_Digits);
+  double   SL=NormalizeDouble(dataObject["stoploss"].ToDbl(),Digits());
+  double   TP=NormalizeDouble(dataObject["takeprofit"].ToDbl(),Digits());
+  double   price=NormalizeDouble(dataObject["price"].ToDbl(),Digits());
   double   deviation=dataObject["deviation"].ToDbl();  
   string   comment=dataObject["comment"].ToStr();
   
@@ -1219,6 +1221,7 @@ void TradingModule(CJAVal &dataObject){
 void OnTradeTransaction(const MqlTradeTransaction &trans,
                         const MqlTradeRequest &request,
                         const MqlTradeResult &result){
+  ENUM_TRADE_TRANSACTION_TYPE  trans_type=trans.type;
   switch(trans.type) {
    // case TRADE_TRANSACTION_REQUEST:
    // case TRADE_TRANSACTION_POSITION: 
